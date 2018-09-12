@@ -78,7 +78,7 @@ def load_settings():
                 if not config.has_option(section, option):
                     print("ERROR: Missing GPIO settings option: " + option +". Please check " + settings_filename + ". Exiting...")
                     sys.exit(1)
-    # Settings file sections and options valid. Now retrieve/check values and store in global dict
+    # Settings file sections and options valid. Now retrieve/parse values and store in global dict
     try:        
         SETTINGS = {'MYSQL_HOSTNAME':config.get('MySQL', 'Host'),
                     'MYSQL_DATABASE':config.get('MySQL', 'Database'),
@@ -95,7 +95,7 @@ def load_settings():
                 print(key, value)
 
     except ValueError as e:
-        print("ERROR: Invalid values for options in settings file: \n" + str(e))
+        print("ERROR: Unable to parse values from settings file: \n" + str(e))
         sys.exit(1)
         
 if __name__ == "__main__":
@@ -105,5 +105,6 @@ if __name__ == "__main__":
     handle_args()
     # Now we load MySQL, GPIO and other settings from settings.ini file
     load_settings()
+    
     
     sys.exit(0)
