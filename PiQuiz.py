@@ -1,25 +1,30 @@
-#!/usr/local/bin/python3.7
+#!/usr/bin/env python3.7
 
 ##### GLOBAL VARIABLES #####
 PROG_VERSION = "0.1.0"
 PROG_NAME = "PiQuiz"
 SETTINGS = []
+LCD = None
+GPIO_INIT_DONE = False
+BUTTON_WAIT_DELAY = 0.2
 ##### CLI OPT VARIABLES ####
 DEBUG_ENABLED = False
 NON_GPIO_ENABLED = False
 TEST_MODE_ENABLED = False
 ###########################
 
-def load_deps():
-    # Check all required modules are installed in Python env. If not, alert user and exit with error code.
-    pipmodules = ['sys','os','argparse','configparser','RPi.GPIO']
-    for module in pipmodules:
-        try:
-            module_obj = __import__(module)
-            globals()[module] = module_obj            
-        except ImportError:
-            print("ERROR: Missing Python Module: " + module + ". Required modules are: " + str(pipmodules) + ".")
-            sys.exit(1)
+try:
+    import sys
+    import time
+    import os
+    import argparse
+    import configparser
+    import RPi.GPIO as GPIO
+    import Adafruit_CharLCD
+    from ScrollLCD import scroll
+except ImportError as e:
+    print("ERROR: Error loading module: " + str(e))
+    sys.exit(1)
 
 def handle_args():
     global DEBUG_ENABLED
@@ -74,7 +79,9 @@ def load_settings():
                     print("ERROR: Missing MySQL settings option: " + option +". Please check " + settings_filename + ". Exiting...")
                     sys.exit(1)
         elif section == 'GPIO':
-            for option in [ 'OPTION_A_BUTTON_GPIO', 'OPTION_B_BUTTON_GPIO', 'OPTION_C_BUTTON_GPIO', 'OPTION_D_BUTTON_GPIO', 'QUIT_BUTTON_GPIO' ]:
+            for option in [ 'OPTION_A_BUTTON_GPIO', 'OPTION_B_BUTTON_GPIO', 'OPTION_C_BUTTON_GPIO', 'OPTION_D_BUTTON_GPIO',
+                            'QUIT_BUTTON_GPIO' ,'LCD_RS','LCD_EN','LCD_D4','LCD_D5','LCD_D6','LCD_D7','LCD_COLUMNS','LCD_ROWS',
+                            'RED_LED','GREEN_LED']:
                 if not config.has_option(section, option):
                     print("ERROR: Missing GPIO settings option: " + option +". Please check " + settings_filename + ". Exiting...")
                     sys.exit(1)
@@ -88,7 +95,17 @@ def load_settings():
                     'GPIO_B_BUTTON':config.getint('GPIO', 'OPTION_B_BUTTON_GPIO'),
                     'GPIO_C_BUTTON':config.getint('GPIO', 'OPTION_C_BUTTON_GPIO'),
                     'GPIO_D_BUTTON':config.getint('GPIO', 'OPTION_D_BUTTON_GPIO'),
-                    'GPIO_QUIT_BUTTON':config.getint('GPIO', 'QUIT_BUTTON_GPIO')}
+                    'GPIO_QUIT_BUTTON':config.getint('GPIO', 'QUIT_BUTTON_GPIO'),
+                    'GPIO_LCD_RS':config.getint('GPIO', 'LCD_RS'),
+                    'GPIO_LCD_EN':config.getint('GPIO', 'LCD_EN'),
+                    'GPIO_LCD_D4':config.getint('GPIO', 'LCD_D4'),
+                    'GPIO_LCD_D5':config.getint('GPIO', 'LCD_D5'),
+                    'GPIO_LCD_D6':config.getint('GPIO', 'LCD_D6'),
+                    'GPIO_LCD_D7':config.getint('GPIO', 'LCD_D7'),
+                    'GPIO_LCD_COLUMNS':config.getint('GPIO', 'LCD_COLUMNS'),
+                    'GPIO_LCD_ROWS':config.getint('GPIO', 'LCD_ROWS'),
+                    'GPIO_RED_LED':config.getint('GPIO', 'RED_LED'),
+                    'GPIO_GREEN_LED':config.getint('GPIO', 'GREEN_LED')}
         if DEBUG_ENABLED:
             print("Settings file contains following keys & values:")
             for key, value in SETTINGS.items():
@@ -97,14 +114,127 @@ def load_settings():
     except ValueError as e:
         print("ERROR: Unable to parse values from settings file: \n" + str(e))
         sys.exit(1)
+
+def init_gpio_lcd():
+    try:
+        global SETTINGS
+        global LCD
+        global DEBUG_ENABLED
+        global GPIO_INIT_DONE
+        # Set GPIO reference mode
+        GPIO.setmode(GPIO.BCM)
+        # Setup GPIO LEDs
+        GPIO.setup(SETTINGS['GPIO_RED_LED'], GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(SETTINGS['GPIO_GREEN_LED'], GPIO.OUT, initial=GPIO.LOW)
+        # Setup GPIO Buttons
+        GPIO.setup(SETTINGS['GPIO_A_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_B_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_C_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_D_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_QUIT_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        # Retrieve LCD GPIO pins from global SETTINGS dict.
+        lcd_rs = SETTINGS['GPIO_LCD_RS']
+        lcd_en = SETTINGS['GPIO_LCD_EN']
+        lcd_d4 = SETTINGS['GPIO_LCD_D4']
+        lcd_d5 = SETTINGS['GPIO_LCD_D5']
+        lcd_d6 = SETTINGS['GPIO_LCD_D6']
+        lcd_d7 = SETTINGS['GPIO_LCD_D7']
+        lcd_columns = SETTINGS['GPIO_LCD_COLUMNS']
+        lcd_rows = SETTINGS['GPIO_LCD_ROWS']
+        # Create LCD object
+        LCD = Adafruit_CharLCD.Adafruit_CharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
+                           lcd_columns, lcd_rows)
+        GPIO_INIT_DONE = True
+        if DEBUG_ENABLED:
+            print(str(LCD))
+            print("GPIO INIT COMPLETE? = ", GPIO_INIT_DONE)
+        
+    except:
+        print("ERROR: Unexpected error during INIT GPIO LCD:", sys.exc_info())
+        GPIO.cleanup()
+        sys.exit(1)
+
+def run_gpio_tests():
+    try:
+        global SETTINGS
+        global BUTTON_WAIT_DELAY
+        global LCD
+        print("====== RUNNING GPIO TESTS======")
+        print("====== TEST 1: LEDs ======")
+        print("------ Switching on RED LED.")
+        GPIO.output(SETTINGS['GPIO_RED_LED'], GPIO.HIGH)
+        time.sleep(2)
+        print("------ Switching on GREEN LED.")
+        GPIO.output(SETTINGS['GPIO_GREEN_LED'], GPIO.HIGH)        
+        time.sleep(2)
+        print("------ Switching off LEDs.")
+        GPIO.output(SETTINGS['GPIO_RED_LED'], GPIO.LOW)
+        GPIO.output(SETTINGS['GPIO_GREEN_LED'], GPIO.LOW)
+        print("====== TEST 2: BUTTONs ======")
+        print("------ Press each button until all are tested successfully. Ctrl-C to move on to next TEST.")
+        BUTTON_A_TESTED_OK=False
+        BUTTON_B_TESTED_OK=False
+        BUTTON_C_TESTED_OK=False
+        BUTTON_D_TESTED_OK=False
+        BUTTON_QUIT_TESTED_OK=False
+        try:            
+            while (BUTTON_A_TESTED_OK == False or BUTTON_B_TESTED_OK == False or
+                   BUTTON_C_TESTED_OK == False or BUTTON_D_TESTED_OK == False or
+                   BUTTON_QUIT_TESTED_OK == False):
+                    if GPIO.input(SETTINGS['GPIO_A_BUTTON']) == GPIO.HIGH:
+                            print("Button A Pressed")
+                            BUTTON_A_TESTED_OK=True
+                    if GPIO.input(SETTINGS['GPIO_B_BUTTON']) == GPIO.HIGH:
+                            print("Button B Pressed")
+                            BUTTON_B_TESTED_OK=True
+                    if GPIO.input(SETTINGS['GPIO_C_BUTTON']) == GPIO.HIGH:
+                            print("Button C Pressed")
+                            BUTTON_C_TESTED_OK=True
+                    if GPIO.input(SETTINGS['GPIO_D_BUTTON']) == GPIO.HIGH:
+                            print("Button D Pressed")
+                            BUTTON_D_TESTED_OK=True
+                    if GPIO.input(SETTINGS['GPIO_QUIT_BUTTON']) == GPIO.HIGH:
+                            print("Quit Button Pressed")
+                            BUTTON_QUIT_TESTED_OK=True
+                    time.sleep(BUTTON_WAIT_DELAY)
+        except KeyboardInterrupt:
+            print("Leaving TEST 2. Moving onto next TEST...")
+        if LCD == None:
+            print("ERROR: LCD has not been setup correctly. Please check your config. Exiting...")
+            raise Exception('LCD_SETUP_ERROR')
+        print("====== TEST 3: LCD ======")
+        print("------ Now writing TEST message to LCD screen.")
+        lcd_text = "!!! LCD TEST !!!"
+        scroll(LCD,lcd_text,1,1,2)
+        LCD.clear()
+        print("====== ALL TESTS COMPLETE ======")
+    except:
+        print("ERROR: Unexpected error during GPIO TESTS:", sys.exc_info())
+        GPIO.cleanup()
+        sys.exit(1)
         
 if __name__ == "__main__":
-    # First, check and load all required modules
-    load_deps()
-    # Then, check command line arguments and handle accordingly
+    # Check command line arguments and handle accordingly
     handle_args()
-    # Now we load MySQL, GPIO and other settings from settings.ini file
+    # Load MySQL, GPIO and other settings from settings.ini file
     load_settings()
+    # Init GPIO & LCD
+    if not NON_GPIO_ENABLED:
+        if DEBUG_ENABLED:
+            print("INFO: Enter INIT GPIO & LCD Function")
+        init_gpio_lcd()
+        if DEBUG_ENABLED:
+            print("INFO: Left INIT GPIO & LCD Function") 
+    # If '-t, --test' CLI arg provided, run GPIO Input/Output tests
+    if TEST_MODE_ENABLED:
+        if NON_GPIO_ENABLED:
+            print("ERROR: Test Mode cannot be run if Non-GPIO mode enabled.")
+            sys.exit(1)
+        if DEBUG_ENABLED:
+            print("INFO: Enter GPIO TESTS Function")
+        run_gpio_tests()
+        if DEBUG_ENABLED:
+            print("INFO: Left GPIO TESTS Function")
     
-    
+    GPIO.cleanup()
     sys.exit(0)
