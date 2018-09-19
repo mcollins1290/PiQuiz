@@ -224,7 +224,7 @@ if __name__ == "__main__":
             print("INFO: Enter INIT GPIO & LCD Function")
         init_gpio_lcd()
         if DEBUG_ENABLED:
-            print("INFO: Left INIT GPIO & LCD Function") 
+            print("INFO: Left INIT GPIO & LCD Function")
     # If '-t, --test' CLI arg provided, run GPIO Input/Output tests
     if TEST_MODE_ENABLED:
         if NON_GPIO_ENABLED:
@@ -235,6 +235,7 @@ if __name__ == "__main__":
         run_gpio_tests()
         if DEBUG_ENABLED:
             print("INFO: Left GPIO TESTS Function")
-    
+        GPIO.cleanup()
+        sys.exit(0)
     GPIO.cleanup()
     sys.exit(0)
