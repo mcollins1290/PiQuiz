@@ -7,6 +7,7 @@ SETTINGS = []
 LCD = None
 GPIO_INIT_DONE = False
 BUTTON_WAIT_DELAY = 0.2
+MySQL_DB_Conn = None
 ##### CLI OPT VARIABLES ####
 DEBUG_ENABLED = False
 NON_GPIO_ENABLED = False
@@ -22,6 +23,8 @@ try:
     import RPi.GPIO as GPIO
     import Adafruit_CharLCD
     from ScrollLCD import scroll
+    import mysql.connector
+    from mysql.connector import Error
 except ImportError as e:
     print("ERROR: Error loading module: " + str(e))
     sys.exit(1)
@@ -212,7 +215,28 @@ def run_gpio_tests():
         print("ERROR: Unexpected error during GPIO TESTS:", sys.exc_info())
         GPIO.cleanup()
         sys.exit(1)
+
+def establish_db_connection():
+    try:
+        global MySQL_DB_Conn
+        global DEBUG_ENABLED
+        global SETTINGS
         
+        if DEBUG_ENABLED:
+            print("INFO: Attempting to connect to " + SETTINGS['MYSQL_DATABASE'] + '@' + SETTINGS['MYSQL_HOSTNAME'] +
+                  " using '" + SETTINGS['MYSQL_USER'] + "' as the User and '" + SETTINGS['MYSQL_PASSWORD'] + "' as the Password.")
+        
+        MySQL_DB_Conn = mysql.connector.connect(host=SETTINGS['MYSQL_HOSTNAME'],
+                                       database=SETTINGS['MYSQL_DATABASE'],
+                                       user=SETTINGS['MYSQL_USER'],
+                                       password=SETTINGS['MYSQL_PASSWORD'])
+        if MySQL_DB_Conn.is_connected():
+            print('Connected to ' + SETTINGS['MYSQL_DATABASE'] + '@' + SETTINGS['MYSQL_HOSTNAME'] +  ' MySQL database.')
+    
+    except Error as e:
+        print("ERROR: Error occurred while trying to connect to the MySQL database: ", str(e))
+        sys.exit(1)
+
 if __name__ == "__main__":
     # Check command line arguments and handle accordingly
     handle_args()
@@ -237,5 +261,12 @@ if __name__ == "__main__":
             print("INFO: Left GPIO TESTS Function")
         GPIO.cleanup()
         sys.exit(0)
+    # Attempt to create a connection to the database
+    if DEBUG_ENABLED:
+        print("INFO: Enter ESTABLISH DB CONNECTION Function")
+    establish_db_connection()
+    if DEBUG_ENABLED:
+        print("INFO: Left ESTABLISH DB CONNECTION Function")
+    MySQL_DB_Conn.close()
     GPIO.cleanup()
     sys.exit(0)
