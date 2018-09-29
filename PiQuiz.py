@@ -25,6 +25,7 @@ try:
     from ScrollLCD import scroll
     import mysql.connector
     from mysql.connector import Error
+    import random
 except ImportError as e:
     print("ERROR: Error loading module: " + str(e))
     sys.exit(1)
@@ -237,6 +238,52 @@ def establish_db_connection():
         print("ERROR: Error occurred while trying to connect to the MySQL database: ", str(e))
         sys.exit(1)
 
+def output(output_text,pause1=False, pause2=False, rep=False):
+    global NON_GPIO_ENABLED
+    global LCD
+    
+    PAUSE_NEXT = 1
+    PAUSE_REP = 1
+    REPETITIONS = 2
+
+    if pause1: PAUSE_NEXT = pause1
+    if pause2: PAUSE_REP = pause2
+    if rep: REPETITIONS = rep
+    
+    if NON_GPIO_ENABLED:
+        print(output_text)
+    else:
+        scroll(LCD,output_text,PAUSE_NEXT,PAUSE_REP,REPETITIONS)
+
+def main():
+    global MySQL_DB_Conn
+    
+    #First create cursor object from current My SQL DB connection.
+    cursor = MySQL_DB_Conn.cursor()
+    #Define query that will check Questions table for non-archived questions.
+    query = ("""SELECT q.question_id,q.question_text,answer_id
+                FROM questions q
+                WHERE q.archived = 0""")
+    #Execute query
+    cursor.execute(query)
+    #Fetch all rows from executed query
+    cursor.fetchall()
+    #Retrieve row count from executed query and store in variable
+    rowcount = cursor.rowcount
+    if DEBUG_ENABLED:
+        print("INFO: Non-archived questions row count: " + str(rowcount))
+    if rowcount == 0:
+        print("ERROR: No non-archived questions available in MySQL Database. Please check MySQL Database and try again.")
+        MySQL_DB_Conn.close()
+        GPIO.cleanup()
+        sys.exit(1)
+    #### MAIN PROG LOGIC STARTS HERE ####
+    global PROG_NAME
+    global PROG_VERSION
+    welcome_msg = ("Welcome to " + PROG_NAME + ". v" + PROG_VERSION)
+    output(welcome_msg,1,2,1)
+    
+    
 if __name__ == "__main__":
     # Check command line arguments and handle accordingly
     handle_args()
@@ -267,6 +314,12 @@ if __name__ == "__main__":
     establish_db_connection()
     if DEBUG_ENABLED:
         print("INFO: Left ESTABLISH DB CONNECTION Function")
+    # Entering Main program code
+    if DEBUG_ENABLED:
+        print("INFO: Enter MAIN Function")
+    main()
+    if DEBUG_ENABLED:
+        print("INFO: Left MAIN Function. Program exiting normally.")
     MySQL_DB_Conn.close()
     GPIO.cleanup()
     sys.exit(0)
