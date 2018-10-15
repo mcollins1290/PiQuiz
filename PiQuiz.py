@@ -238,7 +238,7 @@ def establish_db_connection():
         print("ERROR: Error occurred while trying to connect to the MySQL database: ", str(e))
         sys.exit(1)
 
-def output(output_text,pause1=False, pause2=False, rep=False):
+def output(output_text,pause1=False, pause2=False, rep=False, printToConsole=False):
     global NON_GPIO_ENABLED
     global LCD
     
@@ -250,9 +250,9 @@ def output(output_text,pause1=False, pause2=False, rep=False):
     if pause2: PAUSE_REP = pause2
     if rep: REPETITIONS = rep
     
-    if NON_GPIO_ENABLED:
+    if NON_GPIO_ENABLED or printToConsole:
         print(output_text)
-    else:
+    if not NON_GPIO_ENABLED:
         scroll(LCD,output_text,PAUSE_NEXT,PAUSE_REP,REPETITIONS)
 
 def main():
@@ -267,22 +267,32 @@ def main():
     #Execute query
     cursor.execute(query)
     #Fetch all rows from executed query
-    cursor.fetchall()
+    availq = cursor.fetchall()
     #Retrieve row count from executed query and store in variable
-    rowcount = cursor.rowcount
+    availqcnt = cursor.rowcount
     if DEBUG_ENABLED:
-        print("INFO: Non-archived questions row count: " + str(rowcount))
-    if rowcount == 0:
+        print("INFO: Non-archived questions row count: " + str(availqcnt))
+    if availqcnt == 0:
         print("ERROR: No non-archived questions available in MySQL Database. Please check MySQL Database and try again.")
         MySQL_DB_Conn.close()
         GPIO.cleanup()
         sys.exit(1)
-    #### MAIN PROG LOGIC STARTS HERE ####
+    #### MAIN GAME LOGIC STARTS HERE ####
     global PROG_NAME
     global PROG_VERSION
-    welcome_msg = ("Welcome to " + PROG_NAME + ". v" + PROG_VERSION)
-    output(welcome_msg,1,2,1)
-    
+    msg = ("Welcome to " + PROG_NAME + ". v" + PROG_VERSION)
+    output(msg,1,2,1,True)
+    #Use the randint method to randomly choose a number between 1 and the total # of avail q's in the database
+    noofselq = random.randint(1,availqcnt)
+    #Prepare and display message to player.
+    msg = (str(availqcnt) + " question(s) available. " + str(noofselq) + " question(s) selected.")
+    output(msg,1,2,1,False)
+    #Randomly choose x number of questions to pose to player and store as separate list to iterate through.
+    selected_questions = random.sample(availq, noofselq)
+    if DEBUG_ENABLED:
+        print("Question(s) selected:")
+        print(str(selected_questions))
+    output("Let's begin!",1,2,1,False)
     
 if __name__ == "__main__":
     # Check command line arguments and handle accordingly
@@ -305,7 +315,7 @@ if __name__ == "__main__":
             print("INFO: Enter GPIO TESTS Function")
         run_gpio_tests()
         if DEBUG_ENABLED:
-            print("INFO: Left GPIO TESTS Function")
+            print("INFO: Left GPIO TESTS Function. Program exiting normally.")
         GPIO.cleanup()
         sys.exit(0)
     # Attempt to create a connection to the database
@@ -322,4 +332,5 @@ if __name__ == "__main__":
         print("INFO: Left MAIN Function. Program exiting normally.")
     MySQL_DB_Conn.close()
     GPIO.cleanup()
+    
     sys.exit(0)
