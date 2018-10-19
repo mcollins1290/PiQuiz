@@ -259,7 +259,7 @@ def main():
     global MySQL_DB_Conn
     
     #First create cursor object from current My SQL DB connection.
-    cursor = MySQL_DB_Conn.cursor()
+    cursor = MySQL_DB_Conn.cursor(named_tuple=True)
     #Define query that will check Questions table for non-archived questions.
     query = ("""SELECT q.question_id,q.question_text,answer_id
                 FROM questions q
@@ -293,6 +293,8 @@ def main():
         print("Question(s) selected:")
         print(str(selected_questions))
     output("Let's begin!",1,2,1,False)
+    for row in selected_questions:
+        print(row.question_text + str(row.answer_id))
     
 if __name__ == "__main__":
     # Check command line arguments and handle accordingly
@@ -332,5 +334,4 @@ if __name__ == "__main__":
         print("INFO: Left MAIN Function. Program exiting normally.")
     MySQL_DB_Conn.close()
     GPIO.cleanup()
-    
     sys.exit(0)
