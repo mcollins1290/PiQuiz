@@ -8,6 +8,7 @@ LCD = None
 GPIO_INIT_DONE = False
 BUTTON_WAIT_DELAY = 0.2
 MySQL_DB_Conn = None
+NO_OF_QUESTIONS_CORRECT = 0
 ##### CLI OPT VARIABLES ####
 DEBUG_ENABLED = False
 NON_GPIO_ENABLED = False
@@ -255,6 +256,10 @@ def output(output_text,pause1=False, pause2=False, rep=False, printToConsole=Fal
     if not NON_GPIO_ENABLED:
         scroll(LCD,output_text,PAUSE_NEXT,PAUSE_REP,REPETITIONS)
 
+def display_score(noqcorrect, noofquestions):
+    msg = "GAME OVER! Final Score: " + str(noqcorrect) + "/" + str(noofquestions) + " correct."
+    output(msg,1,2,1,True)
+
 def main():
     global MySQL_DB_Conn
     
@@ -293,9 +298,21 @@ def main():
         print("Question(s) selected:")
         print(str(selected_questions))
     output("Let's begin!",1,2,1,False)
-    for row in selected_questions:
-        print(row.question_text + str(row.answer_id))
-    
+    noofqcorrect = 0
+    try:
+        q = 0
+        for row in selected_questions:
+            q = q + 1
+            msg = ("Q" + str(q) + ": " + row.question_text)
+            output(msg,1,2,1,False)
+    except KeyboardInterrupt:
+        display_score()
+        MySQL_DB_Conn.close()
+        GPIO.cleanup()
+        sys.exit(0)
+    # GAME OVER. Show final score on LCD screen (if GPIO is enabled) and also print to CLI.
+    display_score(noofqcorrect,noofselq)
+        
 if __name__ == "__main__":
     # Check command line arguments and handle accordingly
     handle_args()
