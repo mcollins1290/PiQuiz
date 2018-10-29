@@ -255,13 +255,42 @@ def output(output_text,pause1=False, pause2=False, rep=False, printToConsole=Fal
     if not NON_GPIO_ENABLED:
         scroll(LCD,output_text,PAUSE_NEXT,PAUSE_REP,REPETITIONS)
 
-def display_score(noqcorrect, noofquestions):
-    msg = "GAME OVER! Final Score: " + str(noqcorrect) + "/" + str(noofquestions) + " correct."
+def display_score(noqcorrect,noqincorrect,noqskipped,noqasked):
+    msg = "GAME OVER! Here are the results..."
     output(msg,1,2,1,True)
+    msg = "You were asked " + str(noqasked) + " question(s)"
+    output(msg,1,2,1,True)
+    if noqasked > 0:
+        msg = "You got " + str(noqcorrect) + " question(s) CORRECT!"
+        output(msg,1,2,1,True)
+        msg = "You got " + str(noqincorrect) + " question(s) WRONG"
+        output(msg,1,2,1,True)
+        msg = "You SKIPPED " + str(noqskipped) + " question(s)"
+        output(msg,1,2,1,True)
+
+def output_question(qno,qtext):
+    msg = ("Q" + str(qno) + ": " + qtext)
+    output(msg,1,2,2,False)
+
+def input_answer(question_id):
+    cursor = MySQL_DB_Conn.cursor(named_tuple=True)
+    query = ("""SELECT a.answer_id,a.answer_text
+                FROM answers a
+                WHERE a.question_id = """ + str(question_id))
+    if DEBUG_ENABLED:
+        print("INFO: Query to get answers for question_id " + str(question_id) + " is:")
+        print(query)
+    #Execute query
+    cursor.execute(query)
+    #Fetch all rows from executed query
+    answers = cursor.fetchall()
+    #Now shuffle the answers for a bit of fun
+    random.shuffle(answers)
+    
 
 def main():
     global MySQL_DB_Conn
-    
+    global LCD
     #First create cursor object from current My SQL DB connection.
     cursor = MySQL_DB_Conn.cursor(named_tuple=True)
     #Define query that will check Questions table for non-archived questions.
@@ -282,35 +311,49 @@ def main():
         GPIO.cleanup()
         sys.exit(1)
     #### MAIN GAME LOGIC STARTS HERE ####
-    global PROG_NAME
-    global PROG_VERSION
-    msg = ("Welcome to " + PROG_NAME + ". v" + PROG_VERSION)
-    output(msg,1,2,1,True)
-    #Use the randint method to randomly choose a number between 1 and the total # of avail q's in the database
-    noofselq = random.randint(1,availqcnt)
-    #Prepare and display message to player.
-    msg = (str(availqcnt) + " question(s) available. " + str(noofselq) + " question(s) selected.")
-    output(msg,1,2,1,False)
-    #Randomly choose x number of questions to pose to player and store as separate list to iterate through.
-    selected_questions = random.sample(availq, noofselq)
-    if DEBUG_ENABLED:
-        print("Question(s) selected:")
-        print(str(selected_questions))
-    output("Let's begin!",1,2,1,False)
-    noofqcorrect = 0
-    try:
-        q = 0
-        for row in selected_questions:
-            q = q + 1
-            msg = ("Q" + str(q) + ": " + row.question_text)
-            output(msg,1,2,1,False)
+    try:        
+        global PROG_NAME
+        global PROG_VERSION
+        msg = ("Welcome to " + PROG_NAME + ". v" + PROG_VERSION)
+        output(msg,1,2,1,True)
+        #Use the randint method to randomly choose a number between 1 and the total # of avail q's in the database
+        noofselq = random.randint(1,availqcnt)
+        #Prepare and display message to player.
+        msg = (str(availqcnt) + " question(s) available. " + str(noofselq) + " question(s) selected.")
+        output(msg,1,2,1,False)
+        #Randomly choose x number of questions to pose to player and store as separate list to iterate through.
+        selected_questions = random.sample(availq, noofselq)
+        if DEBUG_ENABLED:
+            print("Question(s) selected:")
+            print(str(selected_questions))
+        output("Let's begin!",1,2,1,False)
+        noofqcorrect = 0
+        noofqincorrect = 0
+        noofqskipped = 0
+        noofqasked = 0
+        try:
+            q = 0
+            for row in selected_questions:
+                q = q + 1
+                # Output current Question to Player either on LCD or CLI (if non-GPIO mode is enabled)
+                output_question(q,row.question_text)
+                # Grab answers to current question, pose them to Player and return Player's selected Answer ID from the function
+                chosenanswerid = input_answer(row.question_id)
+        except KeyboardInterrupt:            
+            display_score(noofqcorrect,noofqincorrect,noofqskipped,noofqasked)
+            output("Thanks for playing. Good-Bye!",1,2,1,True)
+            MySQL_DB_Conn.close()
+            GPIO.cleanup()
+            sys.exit(0)
+        # GAME OVER. Show final score on LCD screen (if GPIO is enabled) and also print to CLI.
+        display_score(noofqcorrect,noofqincorrect,noofqskipped,noofqasked)
+        output("Thanks for playing. Good-Bye!",1,2,1,True)
     except KeyboardInterrupt:
-        display_score()
+        print("ERROR: Keyboard Interrupt detected. Exiting...")
+        LCD.clear()
         MySQL_DB_Conn.close()
-        GPIO.cleanup()
-        sys.exit(0)
-    # GAME OVER. Show final score on LCD screen (if GPIO is enabled) and also print to CLI.
-    display_score(noofqcorrect,noofselq)
+        GPIO.cleanup
+        sys.exit(1)
         
 if __name__ == "__main__":
     # Check command line arguments and handle accordingly
