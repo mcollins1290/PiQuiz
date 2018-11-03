@@ -1,10 +1,8 @@
 In this directory is a .SQL file 'piquiz_dump.sql' which can be used to create the PiQuiz database. All you need to do is to install MariaDB and then issue the following
-command at the Command Prompt:
+commands one by one at the Command Prompt:
 
-mysql piquiz < piquiz_dump.sql
-
-Now if you receive a Access Denied error then you will need to provide your MariaDB root password. This can be done by running the below command:
-
+mysql -u root -p -e "create database piquiz";
 mysql piquiz < piquiz_dump.sql -u root -p
 
-You will be prompted for your root password and once provided MariaDB should create the piquiz database for you.
+You will be prompted for your root password during the execution of both commands.
+Once done you will find that the PiQuiz database now exists within your MariaDB instance.
