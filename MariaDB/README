@@ -3,7 +3,7 @@ command at the Command Prompt:
 
 mysql piquiz < piquiz_dump.sql
 
-Now if you receive a Access Denied error saying then you will need to specify your MariaDB root password as part of the command like so:
+Now if you receive a Access Denied error then you will need to provide your MariaDB root password. This can be done by running the below command:
 
 mysql piquiz < piquiz_dump.sql -u root -p
 
