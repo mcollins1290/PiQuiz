@@ -12,7 +12,10 @@ MySQL_DB_Conn = None
 DEBUG_ENABLED = False
 NON_GPIO_ENABLED = False
 TEST_MODE_ENABLED = False
+##### INPUT TUPLES ####
+NON_GPIO_INPUT_OPTIONS = "A", "B", "C", "D";
 ###########################
+
 
 try:
     import sys
@@ -44,7 +47,7 @@ def handle_args():
     args = parser.parse_args()
     ## process arg values from CLI ##
     if args.version:
-        print(PROG_NAME + " v" + PROG_VERSION)
+        print(PROG_NAME + " v" + PROG_VERSION + " running on Python " + sys.version)
         sys.exit(0)
     if args.debug:
         print("DEBUG ENABLED")
@@ -273,6 +276,9 @@ def output_question(qno,qtext):
     output(msg,1,2,2,False)
 
 def input_answer(question_id):
+    global NON_GPIO_ENABLED
+    answers_input_dict = {}
+    
     cursor = MySQL_DB_Conn.cursor(named_tuple=True)
     query = ("""SELECT a.answer_id,a.answer_text
                 FROM answers a
@@ -286,6 +292,36 @@ def input_answer(question_id):
     answers = cursor.fetchall()
     #Now shuffle the answers for a bit of fun
     random.shuffle(answers)
+    #Map answers to Inputs
+    for i,row in enumerate(answers):
+        if NON_GPIO_ENABLED:
+            answers_input_dict[i+1] = {
+                    'answer_id': row.answer_id,
+                    'answer_text': row.answer_text,
+                    'input': NON_GPIO_INPUT_OPTIONS[i]}
+        else:
+            print("INFO: Finish off GPIO input mapping")
+            pass
+    #Display answers to Player
+    popts = "a", "b", "c", "d";
+    msg = ''
+    for i,row in enumerate(answers_input_dict):
+        msg = msg + popts[i] + ") " + answers_input_dict[i+1]['answer_text'] + " "
+    output(msg,1,2,2,False)
+    #Get player input
+    while True:
+        if NON_GPIO_ENABLED:
+            user_input = input("Press the letter on your keyboard corresponding to the answer you wish to select and press ENTER...").upper()
+        else:
+            print("INFO: Finish off GPIO input handling")
+            pass
+        #Validate user input
+        for i,row in enumerate(answers_input_dict):
+            if user_input == answers_input_dict[i+1]['input']:
+                print("You selected Answer " + answers_input_dict[i+1]['input'].upper() + ".")
+                break
+            else:
+                print("Input invalid. Try again")
     
 
 def main():
