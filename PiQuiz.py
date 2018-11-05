@@ -7,6 +7,7 @@ SETTINGS = []
 LCD = None
 GPIO_INIT_DONE = False
 BUTTON_WAIT_DELAY = 0.2
+LED_WAIT_DELAY = 2
 MySQL_DB_Conn = None
 ##### CLI OPT VARIABLES ####
 DEBUG_ENABLED = False
@@ -258,7 +259,7 @@ def output(output_text,pause1=False, pause2=False, rep=False, printToConsole=Fal
     if not NON_GPIO_ENABLED:
         scroll(LCD,output_text,PAUSE_NEXT,PAUSE_REP,REPETITIONS)
 
-def display_score(noqcorrect,noqincorrect,noqskipped,noqasked):
+def display_score(noqcorrect,noqincorrect,noqasked):
     msg = "GAME OVER! Here are the results..."
     output(msg,1,2,1,True)
     msg = "You were asked " + str(noqasked) + " question(s)"
@@ -267,8 +268,6 @@ def display_score(noqcorrect,noqincorrect,noqskipped,noqasked):
         msg = "You got " + str(noqcorrect) + " question(s) CORRECT!"
         output(msg,1,2,1,True)
         msg = "You got " + str(noqincorrect) + " question(s) WRONG"
-        output(msg,1,2,1,True)
-        msg = "You SKIPPED " + str(noqskipped) + " question(s)"
         output(msg,1,2,1,True)
 
 def output_question(qno,qtext):
@@ -318,11 +317,16 @@ def input_answer(question_id):
         #Validate user input
         for i,row in enumerate(answers_input_dict):
             if user_input == answers_input_dict[i+1]['input']:
-                print("You selected Answer " + answers_input_dict[i+1]['input'].upper() + ".")
-                break
-            else:
-                print("Input invalid. Try again")
-    
+                msg = ("You selected Answer " + answers_input_dict[i+1]['input'].upper() + " (" + answers_input_dict[i+1]['answer_text'] + ")")
+                output(msg,1,2,1,False)
+                return answers_input_dict[i+1]['answer_id']
+        #If answer from user not valid, display appropiate message
+        print("Input invalid. Try again")
+        
+def illuminate_lcd(gpio_output,sleep_time):
+    GPIO.output(ggpio_output, GPIO.HIGH)
+    time.sleep(sleep_time)
+    GPIO.output(ggpio_output, GPIO.LOW)
 
 def main():
     global MySQL_DB_Conn
@@ -350,6 +354,9 @@ def main():
     try:        
         global PROG_NAME
         global PROG_VERSION
+        global SETTINGS
+        global LED_WAIT_DELAY
+        global NON_GPIO_ENABLED
         msg = ("Welcome to " + PROG_NAME + ". v" + PROG_VERSION)
         output(msg,1,2,1,True)
         #Use the randint method to randomly choose a number between 1 and the total # of avail q's in the database
@@ -365,24 +372,35 @@ def main():
         output("Let's begin!",1,2,1,False)
         noofqcorrect = 0
         noofqincorrect = 0
-        noofqskipped = 0
         noofqasked = 0
         try:
             q = 0
             for row in selected_questions:
+                noofqasked = noofqasked + 1
                 q = q + 1
                 # Output current Question to Player either on LCD or CLI (if non-GPIO mode is enabled)
                 output_question(q,row.question_text)
                 # Grab answers to current question, pose them to Player and return Player's selected Answer ID from the function
                 chosenanswerid = input_answer(row.question_id)
+                # Validate answer from Player vs right answer
+                if chosenanswerid == row.answer_id:
+                    if NON_GPIO_ENABLED == False:
+                        illuminate_lcd(SETTINGS['GPIO_GREEN_LED'], LED_WAIT_DELAY)
+                    output("You were CORRECT!",1,2,1,False)
+                    noofqcorrect = noofqcorrect + 1
+                else:
+                    if NON_GPIO_ENABLED == False:
+                        illuminate_lcd(SETTINGS['GPIO_RED_LED'], LED_WAIT_DELAY)
+                    output("Sorry, you were INCORRECT!",1,2,1,False)
+                    noofqincorrect = noofqincorrect + 1
         except KeyboardInterrupt:            
-            display_score(noofqcorrect,noofqincorrect,noofqskipped,noofqasked)
+            display_score(noofqcorrect,noofqincorrect,noofqasked)
             output("Thanks for playing. Good-Bye!",1,2,1,True)
             MySQL_DB_Conn.close()
             GPIO.cleanup()
             sys.exit(0)
         # GAME OVER. Show final score on LCD screen (if GPIO is enabled) and also print to CLI.
-        display_score(noofqcorrect,noofqincorrect,noofqskipped,noofqasked)
+        display_score(noofqcorrect,noofqincorrect,noofqasked)
         output("Thanks for playing. Good-Bye!",1,2,1,True)
     except KeyboardInterrupt:
         print("ERROR: Keyboard Interrupt detected. Exiting...")
