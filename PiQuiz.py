@@ -15,6 +15,7 @@ NON_GPIO_ENABLED = False
 TEST_MODE_ENABLED = False
 ##### INPUT TUPLES ####
 NON_GPIO_INPUT_OPTIONS = "A", "B", "C", "D";
+GPIO_INPUT_OPTIONS = []
 ###########################
 
 
@@ -65,6 +66,7 @@ def handle_args():
 def load_settings():
     global DEBUG_ENABLED
     global SETTINGS
+    global GPIO_INPUT_OPTIONS
     settings_filename = 'settings.ini'
     if DEBUG_ENABLED:
         print("Settings file: " + settings_filename)
@@ -99,10 +101,10 @@ def load_settings():
                     'MYSQL_DATABASE':config.get('MySQL', 'Database'),
                     'MYSQL_USER':config.get('MySQL', 'User'),
                     'MYSQL_PASSWORD':config.get('MySQL', 'Password'),
-                    'GPIO_A_BUTTON':config.getint('GPIO', 'OPTION_A_BUTTON_GPIO'),
-                    'GPIO_B_BUTTON':config.getint('GPIO', 'OPTION_B_BUTTON_GPIO'),
-                    'GPIO_C_BUTTON':config.getint('GPIO', 'OPTION_C_BUTTON_GPIO'),
-                    'GPIO_D_BUTTON':config.getint('GPIO', 'OPTION_D_BUTTON_GPIO'),
+                    'GPIO_OPTION_A_BUTTON':config.getint('GPIO', 'OPTION_A_BUTTON_GPIO'),
+                    'GPIO_OPTION_B_BUTTON':config.getint('GPIO', 'OPTION_B_BUTTON_GPIO'),
+                    'GPIO_OPTION_C_BUTTON':config.getint('GPIO', 'OPTION_C_BUTTON_GPIO'),
+                    'GPIO_OPTION_D_BUTTON':config.getint('GPIO', 'OPTION_D_BUTTON_GPIO'),
                     'GPIO_QUIT_BUTTON':config.getint('GPIO', 'QUIT_BUTTON_GPIO'),
                     'GPIO_LCD_RS':config.getint('GPIO', 'LCD_RS'),
                     'GPIO_LCD_EN':config.getint('GPIO', 'LCD_EN'),
@@ -114,10 +116,19 @@ def load_settings():
                     'GPIO_LCD_ROWS':config.getint('GPIO', 'LCD_ROWS'),
                     'GPIO_RED_LED':config.getint('GPIO', 'RED_LED'),
                     'GPIO_GREEN_LED':config.getint('GPIO', 'GREEN_LED')}
+        
+        #Populate GPIO Input Options dict based on keys,values in SETTINGS dict
+        #GPIO_INPUT_OPTIONS = {k:v for k,v in SETTINGS.items() if 'OPTION' in k}
+        
+        for key, value in SETTINGS.items():
+            if 'OPTION' in key:
+                GPIO_INPUT_OPTIONS.append(value)
         if DEBUG_ENABLED:
-            print("Settings file contains following keys & values:")
+            print("INFO: Settings file contains following keys & values:")
             for key, value in SETTINGS.items():
                 print(key, value)
+            print("INFO: GPIO Input Options list contains following keys & values:")
+            print(GPIO_INPUT_OPTIONS)   
 
     except ValueError as e:
         print("ERROR: Unable to parse values from settings file: \n" + str(e))
@@ -135,10 +146,10 @@ def init_gpio_lcd():
         GPIO.setup(SETTINGS['GPIO_RED_LED'], GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(SETTINGS['GPIO_GREEN_LED'], GPIO.OUT, initial=GPIO.LOW)
         # Setup GPIO Buttons
-        GPIO.setup(SETTINGS['GPIO_A_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.setup(SETTINGS['GPIO_B_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.setup(SETTINGS['GPIO_C_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.setup(SETTINGS['GPIO_D_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_OPTION_A_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_OPTION_B_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_OPTION_C_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(SETTINGS['GPIO_OPTION_D_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(SETTINGS['GPIO_QUIT_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         # Retrieve LCD GPIO pins from global SETTINGS dict.
         lcd_rs = SETTINGS['GPIO_LCD_RS']
@@ -189,16 +200,16 @@ def run_gpio_tests():
             while (BUTTON_A_TESTED_OK == False or BUTTON_B_TESTED_OK == False or
                    BUTTON_C_TESTED_OK == False or BUTTON_D_TESTED_OK == False or
                    BUTTON_QUIT_TESTED_OK == False):
-                    if GPIO.input(SETTINGS['GPIO_A_BUTTON']) == GPIO.HIGH:
+                    if GPIO.input(SETTINGS['GPIO_OPTION_A_BUTTON']) == GPIO.HIGH:
                             print("Button A Pressed")
                             BUTTON_A_TESTED_OK=True
-                    if GPIO.input(SETTINGS['GPIO_B_BUTTON']) == GPIO.HIGH:
+                    if GPIO.input(SETTINGS['GPIO_OPTION_B_BUTTON']) == GPIO.HIGH:
                             print("Button B Pressed")
                             BUTTON_B_TESTED_OK=True
-                    if GPIO.input(SETTINGS['GPIO_C_BUTTON']) == GPIO.HIGH:
+                    if GPIO.input(SETTINGS['GPIO_OPTION_C_BUTTON']) == GPIO.HIGH:
                             print("Button C Pressed")
                             BUTTON_C_TESTED_OK=True
-                    if GPIO.input(SETTINGS['GPIO_D_BUTTON']) == GPIO.HIGH:
+                    if GPIO.input(SETTINGS['GPIO_OPTION_D_BUTTON']) == GPIO.HIGH:
                             print("Button D Pressed")
                             BUTTON_D_TESTED_OK=True
                     if GPIO.input(SETTINGS['GPIO_QUIT_BUTTON']) == GPIO.HIGH:
@@ -276,6 +287,9 @@ def output_question(qno,qtext):
 
 def input_answer(question_id):
     global NON_GPIO_ENABLED
+    global NON_GPIO_INPUT_OPTIONS
+    global GPIO_INPUT_OPTIONS
+    global LCD
     answers_input_dict = {}
     
     cursor = MySQL_DB_Conn.cursor(named_tuple=True)
@@ -299,8 +313,12 @@ def input_answer(question_id):
                     'answer_text': row.answer_text,
                     'input': NON_GPIO_INPUT_OPTIONS[i]}
         else:
-            print("INFO: Finish off GPIO input mapping")
-            pass
+            print(GPIO_INPUT_OPTIONS[i])
+            answers_input_dict[i+1] = {
+                    'answer_id': row.answer_id,
+                    'answer_text': row.answer_text,
+                    'input': GPIO_INPUT_OPTIONS[i]}
+            
     #Display answers to Player
     popts = "a", "b", "c", "d";
     msg = ''
@@ -312,8 +330,8 @@ def input_answer(question_id):
         if NON_GPIO_ENABLED:
             user_input = input("Press the letter on your keyboard corresponding to the answer you wish to select and press ENTER...").upper()
         else:
-            print("INFO: Finish off GPIO input handling")
-            pass
+            LCD.message("Choose your answer...")
+            user_input = GPIO.input()
         #Validate user input
         for i,row in enumerate(answers_input_dict):
             if user_input == answers_input_dict[i+1]['input']:
