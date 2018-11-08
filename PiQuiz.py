@@ -6,7 +6,7 @@ PROG_NAME = "PiQuiz"
 SETTINGS = []
 LCD = None
 GPIO_INIT_DONE = False
-BUTTON_WAIT_DELAY = 0.2
+BUTTON_WAIT_DELAY = 0.3
 LED_WAIT_DELAY = 2
 MySQL_DB_Conn = None
 ##### CLI OPT VARIABLES ####
@@ -151,6 +151,12 @@ def init_gpio_lcd():
         GPIO.setup(SETTINGS['GPIO_OPTION_C_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(SETTINGS['GPIO_OPTION_D_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(SETTINGS['GPIO_QUIT_BUTTON'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        # Add event triggers to Button GPIO channels
+        GPIO.add_event_detect(SETTINGS['GPIO_OPTION_A_BUTTON'], GPIO.RISING)
+        GPIO.add_event_detect(SETTINGS['GPIO_OPTION_B_BUTTON'], GPIO.RISING)
+        GPIO.add_event_detect(SETTINGS['GPIO_OPTION_C_BUTTON'], GPIO.RISING)
+        GPIO.add_event_detect(SETTINGS['GPIO_OPTION_D_BUTTON'], GPIO.RISING)
+        GPIO.add_event_detect(SETTINGS['GPIO_QUIT_BUTTON'], GPIO.RISING)
         # Retrieve LCD GPIO pins from global SETTINGS dict.
         lcd_rs = SETTINGS['GPIO_LCD_RS']
         lcd_en = SETTINGS['GPIO_LCD_EN']
@@ -196,26 +202,26 @@ def run_gpio_tests():
         BUTTON_C_TESTED_OK=False
         BUTTON_D_TESTED_OK=False
         BUTTON_QUIT_TESTED_OK=False
-        try:            
+        try:
             while (BUTTON_A_TESTED_OK == False or BUTTON_B_TESTED_OK == False or
                    BUTTON_C_TESTED_OK == False or BUTTON_D_TESTED_OK == False or
                    BUTTON_QUIT_TESTED_OK == False):
-                    if GPIO.input(SETTINGS['GPIO_OPTION_A_BUTTON']) == GPIO.HIGH:
-                            print("Button A Pressed")
-                            BUTTON_A_TESTED_OK=True
-                    if GPIO.input(SETTINGS['GPIO_OPTION_B_BUTTON']) == GPIO.HIGH:
-                            print("Button B Pressed")
-                            BUTTON_B_TESTED_OK=True
-                    if GPIO.input(SETTINGS['GPIO_OPTION_C_BUTTON']) == GPIO.HIGH:
-                            print("Button C Pressed")
-                            BUTTON_C_TESTED_OK=True
-                    if GPIO.input(SETTINGS['GPIO_OPTION_D_BUTTON']) == GPIO.HIGH:
-                            print("Button D Pressed")
-                            BUTTON_D_TESTED_OK=True
-                    if GPIO.input(SETTINGS['GPIO_QUIT_BUTTON']) == GPIO.HIGH:
-                            print("Quit Button Pressed")
-                            BUTTON_QUIT_TESTED_OK=True
-                    time.sleep(BUTTON_WAIT_DELAY)
+                if GPIO.event_detected(SETTINGS['GPIO_OPTION_A_BUTTON']):
+                    print("Button A Pressed")
+                    BUTTON_A_TESTED_OK=True
+                if GPIO.event_detected(SETTINGS['GPIO_OPTION_B_BUTTON']):
+                    print("Button B Pressed")
+                    BUTTON_B_TESTED_OK=True
+                if GPIO.event_detected(SETTINGS['GPIO_OPTION_C_BUTTON']):
+                    print("Button C Pressed")
+                    BUTTON_C_TESTED_OK=True
+                if GPIO.event_detected(SETTINGS['GPIO_OPTION_D_BUTTON']):
+                    print("Button D Pressed")
+                    BUTTON_D_TESTED_OK=True
+                if GPIO.event_detected(SETTINGS['GPIO_QUIT_BUTTON']):
+                    print("Quit Button Pressed")
+                    BUTTON_QUIT_TESTED_OK=True
+                time.sleep(BUTTON_WAIT_DELAY)
         except KeyboardInterrupt:
             print("Leaving TEST 2. Moving onto next TEST...")
         if LCD == None:
@@ -313,11 +319,11 @@ def input_answer(question_id):
                     'answer_text': row.answer_text,
                     'input': NON_GPIO_INPUT_OPTIONS[i]}
         else:
-            print(GPIO_INPUT_OPTIONS[i])
             answers_input_dict[i+1] = {
                     'answer_id': row.answer_id,
                     'answer_text': row.answer_text,
                     'input': GPIO_INPUT_OPTIONS[i]}
+            print(answers_input_dict)
             
     #Display answers to Player
     popts = "a", "b", "c", "d";
@@ -326,12 +332,22 @@ def input_answer(question_id):
         msg = msg + popts[i] + ") " + answers_input_dict[i+1]['answer_text'] + " "
     output(msg,1,2,2,False)
     #Get player input
+    user_input = None
     while True:
         if NON_GPIO_ENABLED:
             user_input = input("Press the letter on your keyboard corresponding to the answer you wish to select and press ENTER...").upper()
         else:
             LCD.message("Choose your answer...")
-            user_input = GPIO.input()
+            if GPIO.event_detected(SETTINGS['GPIO_OPTION_A_BUTTON']):
+                user_input = GPIO_INPUT_OPTIONS[0]
+            if GPIO.event_detected(SETTINGS['GPIO_OPTION_B_BUTTON']):
+                user_input = GPIO_INPUT_OPTIONS[1]
+            if GPIO.event_detected(SETTINGS['GPIO_OPTION_C_BUTTON']):
+                user_input = GPIO_INPUT_OPTIONS[2]
+            if GPIO.event_detected(SETTINGS['GPIO_OPTION_D_BUTTON']):
+                user_input = GPIO_INPUT_OPTIONS[3]
+            if GPIO.event_detected(SETTINGS['GPIO_QUIT_BUTTON']):
+                print("Quit Button Pressed")
         #Validate user input
         for i,row in enumerate(answers_input_dict):
             if user_input == answers_input_dict[i+1]['input']:
