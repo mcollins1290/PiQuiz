@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.7
 
 ##### GLOBAL VARIABLES #####
-PROG_VERSION = "1.0.0"
+PROG_VERSION = "1.0.1"
 PROG_NAME = "PiQuiz"
 SETTINGS = []
 LCD = None
@@ -14,6 +14,10 @@ MySQL_DB_Conn = None
 DEBUG_ENABLED = False
 NON_GPIO_ENABLED = False
 TEST_MODE_ENABLED = False
+##### RESULT VARIABLES ####
+NOOFQCORRECT = 0
+NOOFQINCORRECT = 0
+NOOFQASKED = 0
 ##### INPUT TUPLES ####
 NON_GPIO_INPUT_OPTIONS = "A", "B", "C", "D";
 GPIO_INPUT_OPTIONS = []
@@ -348,7 +352,10 @@ def input_answer(question_id):
                     user_input = GPIO_INPUT_OPTIONS[3]
                     break
                 if GPIO.event_detected(SETTINGS['GPIO_QUIT_BUTTON']):
-                    display_score(noofqcorrect,noofqincorrect,noofqasked)
+                    global NOOFQASKED
+                    global NOOFQCORRECT
+                    global NOOFQINCORRECT
+                    display_score(NOOFQCORRECT,NOOFQINCORRECT,NOOFQASKED)
                     output("Thanks for playing. Good-Bye!",1,2,1,True)
                     MySQL_DB_Conn.close()
                     GPIO.cleanup()
@@ -360,7 +367,10 @@ def input_answer(question_id):
                 output(msg,1,2,1,False)
                 return answers_input_dict[i]['answer_id']
         #If answer from user not valid, display appropiate message
-        print("Input invalid. Try again")
+        msg = ("Input invalid. Try again")
+        output(msg,1,2,1,True)
+        #Clear LCD screen
+        #LCD.clear()
 
 def illuminate_lcd(gpio_output,sleep_time):
     GPIO.output(gpio_output, GPIO.HIGH)
@@ -409,13 +419,13 @@ def main():
             print("Question(s) selected:")
             print(str(selected_questions))
         output("Let's begin!",1,2,1,False)
-        noofqcorrect = 0
-        noofqincorrect = 0
-        noofqasked = 0
+        global NOOFQASKED
+        global NOOFQCORRECT
+        global NOOFQINCORRECT
         try:
             q = 0
             for row in selected_questions:
-                noofqasked = noofqasked + 1
+                NOOFQASKED = NOOFQASKED + 1
                 q = q + 1
                 # Output current Question to Player either on LCD or CLI (if non-GPIO mode is enabled)
                 output_question(q,row.question_text)
@@ -426,20 +436,20 @@ def main():
                     if NON_GPIO_ENABLED == False:
                         illuminate_lcd(SETTINGS['GPIO_GREEN_LED'], LED_WAIT_DELAY)
                     output("You are CORRECT!",1,2,1,False)
-                    noofqcorrect = noofqcorrect + 1
+                    NOOFQCORRECT = NOOFQCORRECT + 1
                 else:
                     if NON_GPIO_ENABLED == False:
                         illuminate_lcd(SETTINGS['GPIO_RED_LED'], LED_WAIT_DELAY)
                     output("Sorry, you are INCORRECT!",1,2,1,False)
-                    noofqincorrect = noofqincorrect + 1
+                    NOOFQINCORRECT = NOOFQINCORRECT + 1
         except KeyboardInterrupt:
-            display_score(noofqcorrect,noofqincorrect,noofqasked)
+            display_score(NOOFQCORRECT,NOOFQINCORRECT,NOOFQASKED)
             output("Thanks for playing. Good-Bye!",1,2,1,True)
             MySQL_DB_Conn.close()
             GPIO.cleanup()
             sys.exit(0)
         # GAME OVER. Show final score on LCD screen (if GPIO is enabled) and also print to CLI.
-        display_score(noofqcorrect,noofqincorrect,noofqasked)
+        display_score(NOOFQCORRECT,NOOFQINCORRECT,NOOFQASKED)
         output("Thanks for playing. Good-Bye!",1,2,1,True)
     except KeyboardInterrupt:
         print("ERROR: Keyboard Interrupt detected. Exiting...")
