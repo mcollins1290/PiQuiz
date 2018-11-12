@@ -369,8 +369,6 @@ def input_answer(question_id):
         #If answer from user not valid, display appropiate message
         msg = ("Input invalid. Try again")
         output(msg,1,2,1,True)
-        #Clear LCD screen
-        #LCD.clear()
 
 def illuminate_lcd(gpio_output,sleep_time):
     GPIO.output(gpio_output, GPIO.HIGH)
