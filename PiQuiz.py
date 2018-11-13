@@ -307,10 +307,25 @@ def input_answer(question_id):
     if DEBUG_ENABLED:
         print("INFO: Query to get answers for question_id " + str(question_id) + " is:")
         print(query)
-    #Execute query
-    cursor.execute(query)
-    #Fetch all rows from executed query
-    answers = cursor.fetchall()
+    try:
+        #Execute query
+        cursor.execute(query)
+        #Fetch all rows from executed query
+        answers = cursor.fetchall()
+    except:
+        print("ERROR: Unexpected error retrieving answers to Question ID: " + str(question_id), sys.exc_info())
+        MySQL_DB_Conn.close()
+        GPIO.cleanup
+        sys.exit(1)
+    #Retrieve row count from executed query and store in variable
+    anscnt = cursor.rowcount
+    if DEBUG_ENABLED:
+        print("INFO: Available answers row count: " + str(anscnt))
+    if anscnt == 0:
+        print("ERROR: No answers available for Question ID: " + str(question_id) + ". Please check MySQL Database and try again.")
+        MySQL_DB_Conn.close()
+        GPIO.cleanup()
+        sys.exit(1)
     #Now shuffle the answers for a bit of fun
     random.shuffle(answers)
     #Map answers to Inputs
@@ -384,10 +399,16 @@ def main():
     query = ("""SELECT q.question_id,q.question_text,answer_id
                 FROM questions q
                 WHERE q.archived = 0""")
-    #Execute query
-    cursor.execute(query)
-    #Fetch all rows from executed query
-    availq = cursor.fetchall()
+    try:
+        #Execute query
+        cursor.execute(query)
+        #Fetch all rows from executed query
+        availq = cursor.fetchall()
+    except:
+        print("ERROR: Unexpected error retrieving non-archived questions:", sys.exc_info())
+        MySQL_DB_Conn.close()
+        GPIO.cleanup
+        sys.exit(1)
     #Retrieve row count from executed query and store in variable
     availqcnt = cursor.rowcount
     if DEBUG_ENABLED:
