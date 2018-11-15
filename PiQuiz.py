@@ -385,7 +385,7 @@ def input_answer(question_id):
         msg = ("Input invalid. Try again")
         output(msg,1,2,1,True)
 
-def illuminate_lcd(gpio_output,sleep_time):
+def illuminate_led(gpio_output,sleep_time):
     GPIO.output(gpio_output, GPIO.HIGH)
     time.sleep(sleep_time)
     GPIO.output(gpio_output, GPIO.LOW)
@@ -453,12 +453,12 @@ def main():
                 # Validate answer from Player vs right answer
                 if chosenanswerid == row.answer_id:
                     if NON_GPIO_ENABLED == False:
-                        illuminate_lcd(SETTINGS['GPIO_GREEN_LED'], LED_WAIT_DELAY)
+                        illuminate_led(SETTINGS['GPIO_GREEN_LED'], LED_WAIT_DELAY)
                     output("You are CORRECT!",1,2,1,False)
                     NOOFQCORRECT = NOOFQCORRECT + 1
                 else:
                     if NON_GPIO_ENABLED == False:
-                        illuminate_lcd(SETTINGS['GPIO_RED_LED'], LED_WAIT_DELAY)
+                        illuminate_led(SETTINGS['GPIO_RED_LED'], LED_WAIT_DELAY)
                     output("Sorry, you are INCORRECT!",1,2,1,False)
                     NOOFQINCORRECT = NOOFQINCORRECT + 1
         except KeyboardInterrupt:
