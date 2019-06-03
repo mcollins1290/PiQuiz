@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.7
 
 ##### GLOBAL VARIABLES #####
-PROG_VERSION = "1.0.1"
+PROG_VERSION = "1.0.2"
 PROG_NAME = "PiQuiz"
 SETTINGS = []
 LCD = None
@@ -333,12 +333,12 @@ def input_answer(question_id):
         if NON_GPIO_ENABLED:
             answers_input_dict[i] = {
                     'answer_id': row.answer_id,
-                    'answer_text': row.answer_text,
+                    'answer_text': str(row.answer_text),
                     'input': NON_GPIO_INPUT_OPTIONS[i]}
         else:
             answers_input_dict[i] = {
                     'answer_id': row.answer_id,
-                    'answer_text': row.answer_text,
+                    'answer_text': str(row.answer_text),
                     'input': GPIO_INPUT_OPTIONS[i]}
     #Display answers to Player
     popts = "a", "b", "c", "d";
